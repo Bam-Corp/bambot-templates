@@ -1,23 +1,25 @@
-# Dockerfile.dashboard.j2
-FROM python:3.9-bullseye
+# Dockerfile.lightweight.j2
+FROM python:3.9-alpine
 WORKDIR /app
 
-# Install required packages for pyarrow
-RUN apt-get update && apt-get install -y \
-    cmake \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Install the required packages
+RUN apk add --no-cache \
+    build-base \
+    musl-dev \
+    libffi-dev
 
-# Add the bot file from the build context
-ADD {{ bot_file }} /app/{{ bot_file }}
+# Copy the bot file from the build context
+COPY {{ bot_file }} ./
 
 # Install additional packages from requirements.txt
-ADD requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir pyarrow==10.0.1 streamlit
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Add the run script
-ADD run.sh ./
+# Remove the build dependencies
+RUN apk del \
+    build-base \
+    musl-dev \
+    libffi-dev
 
 # Set the PYTHONUNBUFFERED environment variable to ensure real-time output
 ENV PYTHONUNBUFFERED=1
@@ -25,10 +27,11 @@ ENV PYTHONUNBUFFERED=1
 # Disable Python's generation of .pyc files
 ENV PYTHONDONTWRITEBYTECODE=1
 
-EXPOSE 8501
+# Copy the run script
+COPY run.sh ./
 
 # Make the run script executable
 RUN chmod +x run.sh
 
-# Start the agent and Streamlit dashboard
+# Start the agent
 CMD ["./run.sh"]
